@@ -73,7 +73,44 @@ app.post('/send',function(req,res){
 });
 /*------------------SMTP Over-----------------------------*/
 
+app.get('/verify',function(req,res) {
+  if((req.protocol+"://"+req.get('host'))==("http://"+host)) {
+    async.waterfall([
+      function(callback) {
+        let decodedMail = new Buffer(req.query.mail, 'base64').toString('ascii');
+        redisClient.get(decodedMail, function(err, reply) {
+          if(err) {
+            return callback(true,"Error in redis");
+          }
+          if(reply !== 1) {
+            return callback(true,"Issue in redis");
+          }
+         callback(null,decodedMail,reply);
 
+        });
+      },
+      function(key,redisData,callback) {
+        if(redisData === req.query.id) {
+          redisClient.del(key,function(err,reply) {
+            if(err) {
+              return callback(true,"Error in redis");
+            }
+            if(reply !== 1) {
+              return callback(true,"Issue in redis");
+            }
+            callback(null,"Email is verified");
+          });
+        } else {
+          return callback(true,"Invalid token");
+        }
+      }
+    ],function(err,data) {
+      res.send(data);
+    });
+  } else {
+    res.end("Request is from unknown source");
+  }
+});
 
 /*--------------------Routing Over----------------------------*/
 
